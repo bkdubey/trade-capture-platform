@@ -21,11 +21,11 @@ public class TradeKafkaProducer {
     }
 
     public CompletableFuture<SendResult<Object, Object>> publish(TradeMessage message) {
-        return kafkaTemplate.send(properties.getTopic(), partitionKey(message), message);
+        return kafkaTemplate.send(topicFor(message), partitionKey(message), message);
     }
 
-    public String topic() {
-        return properties.getTopic();
+    public String topicFor(TradeMessage message) {
+        return properties.topicFor(message.bookingSystem());
     }
 
     private String partitionKey(TradeMessage message) {

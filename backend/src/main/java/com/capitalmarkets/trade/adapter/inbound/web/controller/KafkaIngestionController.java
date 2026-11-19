@@ -35,7 +35,7 @@ public class KafkaIngestionController {
         // Spring MVC keeps the request async while waiting for the configured broker acknowledgement timeout.
         return producer.publish(message)
                 .orTimeout(properties.getProducer().getPublishTimeout().toMillis(), TimeUnit.MILLISECONDS)
-                .thenApply(result -> new KafkaPublishResponse(message.tradeId(), producer.topic(), true))
+                .thenApply(result -> new KafkaPublishResponse(message.tradeId(), producer.topicFor(message), true))
                 .exceptionally(this::publishFailure);
     }
 

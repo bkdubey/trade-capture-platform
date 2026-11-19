@@ -21,7 +21,10 @@ public class TradeKafkaConsumer {
         this.validator = validator;
     }
 
-    @KafkaListener(topics = "${app.kafka.topic}", groupId = "${spring.kafka.consumer.group-id}")
+    @KafkaListener(
+            topics = "#{@tradeKafkaTopics}",
+            groupId = "${spring.kafka.consumer.group-id}",
+            autoStartup = "${app.kafka.consumer.enabled:true}")
     public void consume(TradeMessage message) {
         var violations = validator.validate(message);
         if (!violations.isEmpty()) {

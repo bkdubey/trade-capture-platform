@@ -1,8 +1,8 @@
-package com.capitalmarkets.trade.adapter.outbound.persistence;
+package com.capitalmarkets.trade.repository.jdbc;
 
 import com.capitalmarkets.trade.config.properties.TradeIngestionProperties;
 import com.capitalmarkets.trade.service.TradeQuery;
-import com.capitalmarkets.trade.service.port.TradeRepository;
+import com.capitalmarkets.trade.service.repository.TradeRepository;
 import com.capitalmarkets.trade.service.dto.TradeSummary;
 import com.capitalmarkets.trade.service.TradeSortDirection;
 import com.capitalmarkets.trade.service.TradeSortField;

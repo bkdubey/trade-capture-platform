@@ -1,4 +1,4 @@
-package com.capitalmarkets.trade.adapter.outbound.persistence;
+package com.capitalmarkets.trade.repository.jdbc;
 
 import com.capitalmarkets.trade.config.properties.TradeIngestionProperties;
 import com.capitalmarkets.trade.domain.Trade;
@@ -8,11 +8,12 @@ import com.capitalmarkets.trade.service.TradeQuery;
 import com.capitalmarkets.trade.service.TradeSortField;
 import com.capitalmarkets.trade.service.dto.TradePage;
 import com.capitalmarkets.trade.service.dto.TradeSummary;
-import com.capitalmarkets.trade.service.port.TradeRepository;
+import com.capitalmarkets.trade.service.repository.TradeRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
+@ConditionalOnProperty(prefix = "app.persistence", name = "adapter", havingValue = "jdbc", matchIfMissing = true)
 public class JdbcTradeRepository implements TradeRepository {
     private static final String SELECT_COLUMNS = """
             id, booking_system, trade_id, instrument_id, quantity, trade_price, trade_timestamp,

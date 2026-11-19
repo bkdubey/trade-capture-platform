@@ -25,7 +25,7 @@ class KafkaIngestionControllerTest {
     @Test
     void publishesTradeAndReturnsBrokerAcknowledgement() {
         properties.setTopic("trades.test");
-        when(producer.topic()).thenReturn("trades.test");
+        when(producer.topicFor(trade.toMessage())).thenReturn("trades.test");
         when(producer.publish(trade.toMessage())).thenReturn(completedSend());
 
         var response = controller.publish(trade).join();

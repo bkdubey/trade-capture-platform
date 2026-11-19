@@ -5,8 +5,10 @@ import com.capitalmarkets.trade.domain.Trade;
 import com.capitalmarkets.trade.domain.TradeSource;
 import com.capitalmarkets.trade.domain.TradeStatus;
 import com.capitalmarkets.trade.domain.TradeValidationPolicy;
+import com.capitalmarkets.trade.domain.QuantityPositiveValidationRule;
+import com.capitalmarkets.trade.domain.TradePricePositiveValidationRule;
 import com.capitalmarkets.trade.service.dto.TradeCaptureData;
-import com.capitalmarkets.trade.service.port.TradeRepository;
+import com.capitalmarkets.trade.service.repository.TradeRepository;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -24,7 +26,9 @@ class TradeCaptureServiceTest {
     private final TradeRepository repository = mock(TradeRepository.class);
     private final Instant receivedAt = Instant.parse("2026-01-01T10:00:00Z");
     private final TradeCaptureService service = new TradeCaptureService(
-            repository, new TradeValidationPolicy(), Clock.fixed(receivedAt, ZoneOffset.UTC),
+            repository, new TradeValidationPolicy(List.of(
+                    new QuantityPositiveValidationRule(), new TradePricePositiveValidationRule())),
+            Clock.fixed(receivedAt, ZoneOffset.UTC),
             new TradeIngestionProperties());
 
     @Test

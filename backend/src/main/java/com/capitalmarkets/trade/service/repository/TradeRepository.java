@@ -1,4 +1,4 @@
-package com.capitalmarkets.trade.service.port;
+package com.capitalmarkets.trade.service.repository;
 
 import com.capitalmarkets.trade.domain.Trade;
 import com.capitalmarkets.trade.service.TradeQuery;

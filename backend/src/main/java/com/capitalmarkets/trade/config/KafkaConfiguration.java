@@ -3,6 +3,7 @@ package com.capitalmarkets.trade.config;
 import com.capitalmarkets.trade.config.properties.TradeKafkaProperties;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.TopicPartition;
+import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
@@ -11,32 +12,40 @@ import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.util.backoff.FixedBackOff;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Configuration
 public class KafkaConfiguration {
     @Bean
-    NewTopic tradesTopic(TradeKafkaProperties properties) {
-        // Provision one shared intraday topic; use the message key for partition routing.
-        return TopicBuilder.name(properties.getTopic())
-                .partitions(properties.getPartitions())
-                .replicas(properties.getReplicas())
-                .build();
+    String[] tradeKafkaTopics(TradeKafkaProperties properties) {
+        return properties.getConsumerTopics().toArray(String[]::new);
     }
 
     @Bean
-    NewTopic deadLetterTopic(TradeKafkaProperties properties) {
-        return TopicBuilder.name(properties.getTopic() + properties.getDeadLetterSuffix())
-                .partitions(properties.getPartitions())
-                .replicas(properties.getReplicas())
-                .build();
+    KafkaAdmin.NewTopics tradeTopics(TradeKafkaProperties properties) {
+        List<NewTopic> topics = new ArrayList<>();
+        for (String topic : properties.getAllTopics()) {
+            int partitions = properties.partitionsFor(topic);
+            topics.add(TopicBuilder.name(topic)
+                    .partitions(partitions)
+                    .replicas(properties.getReplicas())
+                    .build());
+            topics.add(TopicBuilder.name(topic + properties.getDeadLetterSuffix())
+                    .partitions(partitions)
+                    .replicas(properties.getReplicas())
+                    .build());
+        }
+        return new KafkaAdmin.NewTopics(topics.toArray(NewTopic[]::new));
     }
 
     @Bean
     DefaultErrorHandler kafkaErrorHandler(
             KafkaTemplate<Object, Object> kafkaTemplate,
             TradeKafkaProperties properties) {
-        String topic = properties.getTopic();
         var recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate,
-                (record, exception) -> new TopicPartition(topic + properties.getDeadLetterSuffix(), record.partition()));
+                (record, exception) -> new TopicPartition(
+                        record.topic() + properties.getDeadLetterSuffix(), record.partition()));
         return new DefaultErrorHandler(recoverer, new FixedBackOff(
                 properties.getConsumer().getRetryBackoff().toMillis(),
                 properties.getConsumer().getRetryAttempts()));

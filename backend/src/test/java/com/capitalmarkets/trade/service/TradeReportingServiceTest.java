@@ -1,6 +1,6 @@
 package com.capitalmarkets.trade.service;
 
-import com.capitalmarkets.trade.service.port.TradeRepository;
+import com.capitalmarkets.trade.service.repository.TradeRepository;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;

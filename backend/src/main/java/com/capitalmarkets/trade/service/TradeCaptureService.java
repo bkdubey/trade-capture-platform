@@ -4,8 +4,9 @@ import com.capitalmarkets.trade.config.properties.TradeIngestionProperties;
 import com.capitalmarkets.trade.domain.Trade;
 import com.capitalmarkets.trade.domain.TradeSource;
 import com.capitalmarkets.trade.domain.TradeValidationPolicy;
+import com.capitalmarkets.trade.domain.TradeValidationContext;
 import com.capitalmarkets.trade.service.dto.TradeCaptureData;
-import com.capitalmarkets.trade.service.port.TradeRepository;
+import com.capitalmarkets.trade.service.repository.TradeRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,7 +48,9 @@ public class TradeCaptureService {
     }
 
     private Trade toTrade(TradeCaptureData record, TradeSource source, Instant receivedAt) {
-        var result = validationPolicy.validate(record.quantity(), record.tradePrice());
+        var result = validationPolicy.validate(new TradeValidationContext(
+                record.bookingSystem(), record.tradeId(), record.instrumentId(), record.quantity(),
+                record.tradePrice(), record.tradeTimestamp()));
         return new Trade(UUID.randomUUID(), record.bookingSystem(), record.tradeId(), record.instrumentId(),
                 record.quantity(), record.tradePrice(), record.tradeTimestamp(), source, result.status(),
                 result.reason(), receivedAt);

@@ -1,6 +1,6 @@
 package com.capitalmarkets.trade.service;
 
-import com.capitalmarkets.trade.service.port.TradeRepository;
+import com.capitalmarkets.trade.service.repository.TradeRepository;
 import com.capitalmarkets.trade.service.dto.TradePage;
 import com.capitalmarkets.trade.service.dto.TradeSummary;
 import org.springframework.stereotype.Service;

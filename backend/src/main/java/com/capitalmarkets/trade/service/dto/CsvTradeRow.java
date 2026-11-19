@@ -1,6 +1,5 @@
-package com.capitalmarkets.trade.adapter.inbound.web.dto;
+package com.capitalmarkets.trade.service.dto;
 
-import com.capitalmarkets.trade.service.dto.TradeCaptureData;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 

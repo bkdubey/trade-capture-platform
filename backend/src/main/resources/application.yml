@@ -25,14 +25,17 @@ spring:
       group-id: ${KAFKA_CONSUMER_GROUP_ID:trade-capture-api}
       auto-offset-reset: earliest
       enable-auto-commit: false
+      max-poll-records: ${KAFKA_MAX_POLL_RECORDS:100}
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
+        max.poll.interval.ms: ${KAFKA_MAX_POLL_INTERVAL_MS:300000}
         spring.json.value.default.type: com.capitalmarkets.trade.adapter.messaging.dto.TradeMessage
         spring.json.trusted.packages: com.capitalmarkets.trade.adapter.messaging.dto
     listener:
       ack-mode: record
       concurrency: ${KAFKA_CONCURRENCY:3}
+      poll-timeout: ${KAFKA_POLL_TIMEOUT:1s}
     # Kafka producer client reliability settings.
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -62,6 +65,9 @@ management:
     env:
       enabled: false
 app:
+  # Selects one repository adapter; add alternate adapter implementations behind this boundary.
+  persistence:
+    adapter: ${TRADE_PERSISTENCE_ADAPTER:jdbc}
   # Application-level CSV and JDBC ingestion limits.
   ingestion:
     write-batch-size: ${TRADE_WRITE_BATCH_SIZE:1000}
@@ -72,9 +78,19 @@ app:
     dead-letter-suffix: ${KAFKA_DLT_SUFFIX:.DLT}
     partitions: ${KAFKA_TRADE_PARTITIONS:3}
     replicas: ${KAFKA_TRADE_REPLICAS:1}
+    # Override topic routing for known booking systems; unmatched systems use the default topic.
+    booking-system-topics:
+      MUREX: ${KAFKA_TOPIC_MUREX:trades.murex}
+      CALYPSO: ${KAFKA_TOPIC_CALYPSO:trades.calypso}
+    topic-partitions:
+      "[trades.murex]": ${KAFKA_PARTITIONS_MUREX:3}
+      "[trades.calypso]": ${KAFKA_PARTITIONS_CALYPSO:3}
     producer:
       publish-timeout: ${KAFKA_PUBLISH_TIMEOUT:10s}
     consumer:
+      enabled: ${KAFKA_CONSUMER_ENABLED:true}
+      # Optional comma-separated override for dedicated consumer deployments.
+      topics: ${KAFKA_CONSUMER_TOPICS:}
       retry-backoff: ${KAFKA_RETRY_BACKOFF:1s}
       retry-attempts: ${KAFKA_RETRY_ATTEMPTS:3}
   # Local demo CORS origin. Keep the API private until real authentication is added.
