@@ -26,17 +26,20 @@ class TradeCaptureServiceTest {
     @Test
     void validatesAndPersistsBothValidAndInvalidRecords() {
         TradeRecord valid = record(1, 25, "100.50");
-        TradeRecord invalid = record(2, 0, "100.50");
+        TradeRecord invalidZero = record(2, 0, "100.50");
+        TradeRecord invalidNegative = record(3, -2, "100.50");
 
-        int accepted = service.capture(List.of(valid, invalid), TradeSource.FILE);
+        int accepted = service.capture(List.of(valid, invalidZero, invalidNegative), TradeSource.FILE);
 
-        assertThat(accepted).isEqualTo(2);
+        assertThat(accepted).isEqualTo(3);
         var captor = org.mockito.ArgumentCaptor.<List<Trade>>captor();
         verify(repository).saveBatch(captor.capture());
         List<Trade> trades = captor.getValue();
-        assertThat(trades).extracting(Trade::status).containsExactly(TradeStatus.VALID, TradeStatus.INVALID);
+        assertThat(trades).extracting(Trade::status)
+                .containsExactly(TradeStatus.VALID, TradeStatus.INVALID, TradeStatus.INVALID);
         assertThat(trades.get(0).source()).isEqualTo(TradeSource.FILE);
-        assertThat(trades.get(1).validationReason()).isEqualTo("Quantity must not be zero");
+        assertThat(trades.get(1).validationReason()).isEqualTo("Quantity must be greater than zero");
+        assertThat(trades.get(2).validationReason()).isEqualTo("Quantity must be greater than zero");
         assertThat(trades).allSatisfy(trade -> assertThat(trade.receivedAt()).isEqualTo(receivedAt));
     }
 

@@ -99,7 +99,7 @@ public class JdbcTradeRepository implements TradeRepository {
         List<Trade> rows = namedJdbcTemplate.query(
                 "SELECT " + SELECT_COLUMNS + " FROM trades" + where
                         + " ORDER BY " + query.sortBy().column() + " " + query.sortDirection().name()
-                        + ", id LIMIT :limit OFFSET :offset",
+                        + ", id " + query.sortDirection().name() + " LIMIT :limit OFFSET :offset",
                 parameters, rowMapper);
         return new TradePage(rows, total == null ? 0 : total, query.page(), query.size());
     }

@@ -10,11 +10,13 @@ class TradeValidationPolicyTest {
     private final TradeValidationPolicy policy = new TradeValidationPolicy();
 
     @Test
-    void flagsZeroQuantityAsInvalid() {
+    void flagsZeroOrNegativeQuantityAsInvalid() {
         var result = policy.validate(0, new BigDecimal("10.25"));
 
         assertThat(result.status()).isEqualTo(TradeStatus.INVALID);
-        assertThat(result.reason()).isEqualTo("Quantity must not be zero");
+        assertThat(result.reason()).isEqualTo("Quantity must be greater than zero");
+        assertThat(policy.validate(-1, new BigDecimal("10.25")).reason())
+                .isEqualTo("Quantity must be greater than zero");
     }
 
     @Test
@@ -26,8 +28,8 @@ class TradeValidationPolicyTest {
     }
 
     @Test
-    void acceptsPositivePriceAndNonZeroQuantity() {
-        var result = policy.validate(-2, new BigDecimal("0.01"));
+    void acceptsPositivePriceAndQuantity() {
+        var result = policy.validate(2, new BigDecimal("0.01"));
 
         assertThat(result.status()).isEqualTo(TradeStatus.VALID);
         assertThat(result.reason()).isNull();

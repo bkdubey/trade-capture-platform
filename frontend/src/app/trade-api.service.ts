@@ -31,6 +31,27 @@ export interface Summary {
   kafka: number;
 }
 
+export interface KafkaTradePayload {
+  bookingSystem: string;
+  tradeId: number;
+  instrumentId: string;
+  quantity: number;
+  tradePrice: number;
+  tradeTimestamp: string;
+}
+
+export type TradeSortField =
+  | 'TRADE_TIMESTAMP'
+  | 'BOOKING_SYSTEM'
+  | 'TRADE_ID'
+  | 'INSTRUMENT_ID'
+  | 'QUANTITY'
+  | 'TRADE_PRICE'
+  | 'STATUS'
+  | 'SOURCE'
+  | 'VALIDATION_REASON'
+  | 'RECEIVED_AT';
+
 export interface Query {
   status: string;
   source: string;
@@ -39,7 +60,7 @@ export interface Query {
   page: number;
   size: number;
   search: string;
-  sortBy: string;
+  sortBy: TradeSortField;
   sortDirection: 'ASC' | 'DESC';
 }
 
@@ -69,5 +90,10 @@ export class TradeApiService {
     const form = new FormData();
     form.append('file', file);
     return this.http.post<{ accepted: number }>('/api/v1/ingestion/files', form);
+  }
+
+  publishKafkaTrade(trade: KafkaTradePayload): Observable<{ tradeId: number; topic: string; published: boolean }> {
+    return this.http.post<{ tradeId: number; topic: string; published: boolean }>(
+      '/api/v1/ingestion/kafka', trade);
   }
 }

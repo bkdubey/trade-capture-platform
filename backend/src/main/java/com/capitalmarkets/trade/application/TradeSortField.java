@@ -7,7 +7,10 @@ public enum TradeSortField {
     INSTRUMENT_ID("instrument_id"),
     QUANTITY("quantity"),
     TRADE_PRICE("trade_price"),
-    STATUS("status");
+    STATUS("status"),
+    SOURCE("source_type"),
+    VALIDATION_REASON("validation_reason"),
+    RECEIVED_AT("received_at");
 
     private final String column;
 

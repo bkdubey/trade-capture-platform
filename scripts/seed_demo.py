@@ -29,7 +29,7 @@ def api_request(path: str, method: str = "GET", data: bytes | None = None,
 
 def upload_snapshot() -> int:
     boundary = "trade-capture-local-boundary"
-    csv_bytes = (ROOT / "sample-data/eod_positions.csv").read_bytes()
+    csv_bytes = (ROOT / "test-data/eod_positions.csv").read_bytes()
     body = (
         f"--{boundary}\r\n"
         'Content-Disposition: form-data; name="file"; filename="eod_positions.csv"\r\n'
@@ -51,7 +51,7 @@ def publish_intraday() -> int:
     )
     count = 0
     try:
-        with (ROOT / "sample-data/intraday_trades.jsonl").open(encoding="utf-8") as events:
+        with (ROOT / "test-data/intraday_trades.jsonl").open(encoding="utf-8") as events:
             for line in events:
                 event = json.loads(line)
                 producer.send("trades.intraday", key=str(event["tradeId"]), value=event).get(timeout=15)
@@ -65,9 +65,9 @@ def publish_intraday() -> int:
 def main() -> None:
     summary = json.loads(api_request("/api/v1/reports/summary"))
     expected_file = sum(
-        1 for _ in (ROOT / "sample-data/eod_positions.csv").open(encoding="utf-8")) - 1
+        1 for _ in (ROOT / "test-data/eod_positions.csv").open(encoding="utf-8")) - 1
     expected_kafka = sum(
-        1 for _ in (ROOT / "sample-data/intraday_trades.jsonl").open(encoding="utf-8"))
+        1 for _ in (ROOT / "test-data/intraday_trades.jsonl").open(encoding="utf-8"))
     if summary["file"] < expected_file:
         upload_snapshot()
     if summary["kafka"] < expected_kafka:

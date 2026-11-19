@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subject, Subscription, debounceTime, distinctUntilChanged, forkJoin, tap, timer } from 'rxjs';
-import { Query, Summary, Trade, TradeApiService } from './trade-api.service';
+import { KafkaTradePayload, Query, Summary, Trade, TradeApiService, TradeSortField } from './trade-api.service';
 
 type Theme = 'dark' | 'light';
 
@@ -21,7 +21,7 @@ type Theme = 'dark' | 'light';
         <div class="topbar-right">
           <span class="market-open"><i></i> MARKET OPEN</span>
           <span class="live-status"><i [class.offline]="!connected"></i>{{ connected ? 'LIVE UPDATES' : 'CONNECTING' }}</span>
-          <span class="clock">{{ now | date:'HH:mm:ss':'UTC' }} <small>UTC</small></span>
+          <div class="clock"><span>{{ now | date:'HH:mm:ss':'+0530' }}</span></div>
           <button class="icon-button" aria-label="Refresh trades" title="Refresh trades" (click)="load()" [disabled]="loading">⟳</button>
           <button class="theme-button" (click)="toggleTheme()" [attr.aria-label]="'Switch to ' + (theme === 'dark' ? 'light' : 'dark') + ' theme'">
             <span>{{ theme === 'dark' ? '☼' : '☾' }}</span> {{ theme === 'dark' ? 'Dark' : 'Light' }}
@@ -46,6 +46,10 @@ type Theme = 'dark' | 'light';
           <span class="summary-top"><span class="summary-label">KAFKA LIVE</span><span class="card-icon">⌁</span></span>
           <strong>{{ summary?.kafka | number }}</strong><span class="card-caption"><i class="stream-dot"></i> intraday executions</span>
         </button>
+        <button class="summary-card card-amber" [class.selected]="source === 'FILE'" (click)="selectSource('FILE')">
+          <span class="summary-top"><span class="summary-label">EOD FILE</span><span class="card-icon">▤</span></span>
+          <strong>{{ summary?.file | number }}</strong><span class="card-caption">end-of-day positions</span>
+        </button>
       </section>
 
       <p *ngIf="error" class="notice error" role="alert">{{ error }}</p>
@@ -55,7 +59,7 @@ type Theme = 'dark' | 'light';
         <div class="ledger-heading">
           <div>
             <div class="eyebrow"><span class="eyebrow-line"></span> THE TAPE <span class="eyebrow-divider">·</span>
-              <span class="updated-label">{{ loading ? 'UPDATING…' : 'UPDATED ' + (now | date:'HH:mm:ss':'UTC') + ' UTC' }}</span>
+              <span class="updated-label">{{ loading ? 'UPDATING…' : 'UPDATED ' + (now | date:'HH:mm:ss':'+0530') }}</span>
             </div>
             <h1>Trade Ledger <span class="total-pill">{{ page.totalElements | number }} trades</span></h1>
           </div>
@@ -63,9 +67,25 @@ type Theme = 'dark' | 'light';
             <label class="upload-button" [class.uploading]="uploading">
               <span>▤ Upload CSV</span><input type="file" accept=".csv,text/csv" (change)="upload($event)" [disabled]="uploading">
             </label>
+            <button class="action-button kafka-button" (click)="kafkaComposerOpen = !kafkaComposerOpen">
+              <span>⌁ Send Kafka test</span>
+            </button>
             <button class="action-button export-button" (click)="exportReport()" [disabled]="!trades.length" title="Export the current filtered page">⇩ <span>Export report</span></button>
           </div>
         </div>
+
+        <form *ngIf="kafkaComposerOpen" class="kafka-composer" #kafkaForm="ngForm" (ngSubmit)="publishKafkaTrade()">
+          <div class="composer-title"><span class="composer-icon">⌁</span><div><strong>Send an intraday Kafka event</strong><small>Published to trades.intraday and processed by the normal validation pipeline.</small></div></div>
+          <label>BOOKING SYSTEM<input name="bookingSystem" [(ngModel)]="kafkaDraft.bookingSystem" required maxlength="100"></label>
+          <label>TRADE ID<input name="tradeId" [(ngModel)]="kafkaDraft.tradeId" required type="number" min="1" step="1"></label>
+          <label>INSTRUMENT<input name="instrumentId" [(ngModel)]="kafkaDraft.instrumentId" required maxlength="100"></label>
+          <label>QUANTITY<input name="quantity" [(ngModel)]="kafkaDraft.quantity" required type="number" step="1"></label>
+          <label>PRICE<input name="tradePrice" [(ngModel)]="kafkaDraft.tradePrice" required type="number" step="0.0001"></label>
+          <label>TRADE TIME<input name="tradeTimestamp" [(ngModel)]="kafkaDraft.tradeTimestamp" required type="datetime-local"></label>
+          <button type="submit" class="publish-button" [disabled]="!kafkaForm.valid || sendingKafka">{{ sendingKafka ? 'Sending…' : 'Publish event' }}</button>
+          <button type="button" class="cancel-button" (click)="kafkaComposerOpen = false" [disabled]="sendingKafka">Cancel</button>
+          <p>Non-positive quantity or price is allowed here to test invalid-trade handling.</p>
+        </form>
 
         <div class="toolbar">
           <div class="range-control">
@@ -111,31 +131,33 @@ type Theme = 'dark' | 'light';
           <table>
             <thead>
               <tr>
-                <th><button (click)="sort('TRADE_TIMESTAMP')">TRADE TIME UTC <span>{{ sortIndicator('TRADE_TIMESTAMP') }}</span></button></th>
-                <th>SOURCE</th>
                 <th><button (click)="sort('BOOKING_SYSTEM')">BOOKING SYSTEM <span>{{ sortIndicator('BOOKING_SYSTEM') }}</span></button></th>
                 <th><button (click)="sort('TRADE_ID')">TRADE ID <span>{{ sortIndicator('TRADE_ID') }}</span></button></th>
                 <th><button (click)="sort('INSTRUMENT_ID')">INSTRUMENT <span>{{ sortIndicator('INSTRUMENT_ID') }}</span></button></th>
                 <th class="right"><button (click)="sort('QUANTITY')">QUANTITY <span>{{ sortIndicator('QUANTITY') }}</span></button></th>
-                <th class="right"><button (click)="sort('TRADE_PRICE')">PRICE <span>{{ sortIndicator('TRADE_PRICE') }}</span></button></th>
-                <th>STATUS</th>
-                <th>VALIDATION RULE DIAGNOSTICS</th>
+                <th class="right"><button (click)="sort('TRADE_PRICE')">TRADE PRICE <span>{{ sortIndicator('TRADE_PRICE') }}</span></button></th>
+                <th><button (click)="sort('TRADE_TIMESTAMP')">TRADE TIME <span>{{ sortIndicator('TRADE_TIMESTAMP') }}</span></button></th>
+                <th><button (click)="sort('STATUS')">STATUS <span>{{ sortIndicator('STATUS') }}</span></button></th>
+                <th><button (click)="sort('VALIDATION_REASON')">VALIDATION RULE DIAGNOSTICS <span>{{ sortIndicator('VALIDATION_REASON') }}</span></button></th>
+                <th><button (click)="sort('SOURCE')">SOURCE <span>{{ sortIndicator('SOURCE') }}</span></button></th>
+                <th><button (click)="sort('RECEIVED_AT')">INGESTION TIME <span>{{ sortIndicator('RECEIVED_AT') }}</span></button></th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let trade of trades; trackBy: trackTrade" [class.invalid-row]="trade.status === 'INVALID'">
-                <td class="time-cell">{{ trade.tradeTimestamp | date:'dd MMM · HH:mm:ss':'UTC' }}</td>
-                <td><span class="source-badge" [class.badge-file]="trade.source === 'FILE'"><i></i>{{ trade.source === 'FILE' ? 'EOD FILE' : 'LIVE' }}</span></td>
                 <td class="system-name">{{ trade.bookingSystem }}</td>
                 <td class="id-cell">#{{ trade.tradeId }}</td>
                 <td><span class="instrument">{{ trade.instrumentId }}</span></td>
                 <td class="right quantity-cell" [class.negative]="trade.quantity < 0" [class.zero]="trade.quantity === 0">{{ trade.quantity > 0 ? '+' : '' }}{{ trade.quantity | number }}</td>
                 <td class="right price-cell" [class.invalid-value]="trade.tradePrice <= 0">{{ trade.tradePrice | number:'1.2-4' }}</td>
+                <td class="time-cell">{{ trade.tradeTimestamp | date:'dd MMM yy · HH:mm:ss':'+0530' }}</td>
                 <td><span class="validation-badge" [class.invalid]="trade.status === 'INVALID'"><i>{{ trade.status === 'VALID' ? '✓' : '!' }}</i>{{ trade.status }}</span></td>
                 <td class="diagnostic">{{ trade.validationReason || '—' }}</td>
+                <td><span class="source-badge" [class.badge-file]="trade.source === 'FILE'"><i></i>{{ trade.source === 'FILE' ? 'EOD FILE' : 'LIVE' }}</span></td>
+                <td class="time-cell">{{ trade.receivedAt | date:'dd MMM yy · HH:mm:ss':'+0530' }}</td>
               </tr>
               <tr *ngIf="trades.length === 0">
-                <td colspan="9" class="empty-state"><span>{{ loading ? '◌' : '⌕' }}</span><strong>{{ loading ? 'Loading trades…' : 'No trades match your filters' }}</strong><small>{{ search ? 'Try another search or clear the filters.' : 'Choose another reporting period or clear filters.' }}</small>
+                <td colspan="10" class="empty-state"><span>{{ loading ? '◌' : '⌕' }}</span><strong>{{ loading ? 'Loading trades…' : 'No trades match your filters' }}</strong><small>{{ search ? 'Try another search or clear the filters.' : 'Choose another reporting period or clear filters.' }}</small>
                   <button *ngIf="!loading" (click)="clearFilters()">Clear all filters</button>
                 </td>
               </tr>
@@ -147,7 +169,7 @@ type Theme = 'dark' | 'light';
           <div><button (click)="changePage(-1)" [disabled]="page.page === 0 || loading">← Back</button><span>{{ page.page + 1 }} <i>/</i> {{ pageCount }}</span><button (click)="changePage(1)" [disabled]="page.page + 1 >= pageCount || loading">More →</button></div>
         </footer>
       </section>
-      <footer class="page-footer"><span>TRADEFLOW <i>•</i> TRADE CAPTURE & REPORTING</span><span>{{ now | date:'d MMM yyyy':'UTC' }} <i>·</i> ALL TIMES UTC</span></footer>
+      <footer class="page-footer"><span>TRADEFLOW <i>•</i> TRADE CAPTURE & REPORTING</span><span>{{ now | date:'d MMM yyyy':'+0530' }}</span></footer>
     </main>
   `
 })
@@ -163,6 +185,16 @@ export class AppComponent implements OnInit, OnDestroy {
   connected = false;
   loading = false;
   uploading = false;
+  sendingKafka = false;
+  kafkaComposerOpen = false;
+  kafkaDraft: KafkaTradePayload = {
+    bookingSystem: 'MUREX',
+    tradeId: Math.floor(Date.now() / 1000),
+    instrumentId: 'IBM',
+    quantity: 25,
+    tradePrice: 184.25,
+    tradeTimestamp: this.toLocalInput(new Date())
+  };
   now = new Date();
   from = '';
   to = '';
@@ -170,7 +202,7 @@ export class AppComponent implements OnInit, OnDestroy {
   status = '';
   source = '';
   search = '';
-  sortBy = 'TRADE_TIMESTAMP';
+  sortBy: TradeSortField = 'TRADE_TIMESTAMP';
   sortDirection: 'ASC' | 'DESC' = 'DESC';
   summary: Summary | null = null;
   trades: Trade[] = [];
@@ -309,12 +341,14 @@ export class AppComponent implements OnInit, OnDestroy {
     this.load();
   }
 
-  sort(field: string): void {
+  sort(field: TradeSortField): void {
     if (this.sortBy === field) {
       this.sortDirection = this.sortDirection === 'ASC' ? 'DESC' : 'ASC';
     } else {
       this.sortBy = field;
-      this.sortDirection = field === 'TRADE_TIMESTAMP' || field === 'TRADE_ID' ? 'DESC' : 'ASC';
+      this.sortDirection = field === 'TRADE_TIMESTAMP' || field === 'RECEIVED_AT' || field === 'TRADE_ID'
+        ? 'DESC'
+        : 'ASC';
     }
     this.page.page = 0;
     this.load();
@@ -357,18 +391,46 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
 
+  publishKafkaTrade(): void {
+    this.error = '';
+    this.notice = '';
+    this.sendingKafka = true;
+    const event: KafkaTradePayload = {
+      ...this.kafkaDraft,
+      tradeTimestamp: new Date(this.kafkaDraft.tradeTimestamp).toISOString()
+    };
+    this.api.publishKafkaTrade(event).subscribe({
+      next: result => {
+        this.sendingKafka = false;
+        this.kafkaComposerOpen = false;
+        this.notice = `Trade ${result.tradeId} acknowledged by Kafka (${result.topic}); the consumer is processing it.`;
+        this.kafkaDraft = {
+          ...this.kafkaDraft,
+          tradeId: Math.max(Math.floor(Date.now() / 1000), this.kafkaDraft.tradeId + 1),
+          tradeTimestamp: this.toLocalInput(new Date())
+        };
+        this.load();
+      },
+      error: error => {
+        this.sendingKafka = false;
+        this.handleError(error);
+      }
+    });
+  }
+
   exportReport(): void {
-    const columns = ['TradeTimestampUtc', 'Source', 'BookingSystem', 'TradeID',
-      'InstrumentID', 'Quantity', 'TradePrice', 'Status', 'ValidationReason'];
+    const columns = ['BookingSystem', 'TradeID', 'InstrumentID', 'Quantity', 'TradePrice',
+      'TradeTimestamp', 'Status', 'ValidationReason', 'Source', 'IngestionTime'];
     const rows = this.trades.map(trade => [
-      trade.tradeTimestamp, trade.source, trade.bookingSystem, trade.tradeId,
-      trade.instrumentId, trade.quantity, trade.tradePrice, trade.status, trade.validationReason ?? ''
+      trade.bookingSystem, trade.tradeId, trade.instrumentId, trade.quantity, trade.tradePrice,
+      this.toIstIso(trade.tradeTimestamp), trade.status, trade.validationReason ?? '',
+      trade.source, this.toIstIso(trade.receivedAt)
     ]);
     const csv = [columns, ...rows].map(row => row.map(value => this.csvCell(value)).join(',')).join('\r\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `tradeflow-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `tradeflow-report-${this.toIstIso(new Date().toISOString()).slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -433,9 +495,16 @@ export class AppComponent implements OnInit, OnDestroy {
     return `"${text.replaceAll('"', '""')}"`;
   }
 
+  private toIstIso(value: string): string {
+    return new Date(value).toLocaleString('sv-SE', {
+      timeZone: 'Asia/Kolkata',
+      hour12: false
+    }).replace(' ', 'T') + '+05:30';
+  }
+
   private handleError(error: unknown): void {
     this.error = error instanceof HttpErrorResponse
-      ? error.error?.detail ?? `Could not load trade data (${error.status || 'network error'}).`
-      : 'An unexpected error occurred while loading trade data.';
+      ? error.error?.detail ?? `The request failed (${error.status || 'network error'}).`
+      : 'An unexpected request error occurred.';
   }
 }

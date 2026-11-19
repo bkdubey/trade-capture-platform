@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [[ "${1:-}" == "--native" ]]; then
+  exec "$ROOT_DIR/scripts/start-native.sh" api
+elif [[ $# -gt 0 ]]; then
+  echo "Usage: ./startup-api.sh [--native]" >&2
+  exit 2
+fi
 "$ROOT_DIR/scripts/check-dependencies.sh"
 cd "$ROOT_DIR"
 docker compose up --build -d --wait postgres kafka api

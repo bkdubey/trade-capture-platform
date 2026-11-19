@@ -2,8 +2,12 @@
 **/target/
 frontend/node_modules/
 frontend/dist/
+.venv/
 *.iml
 .DS_Store
 **/local-memory/*
+!local-memory/
+local-memory/*
+!local-memory/*.md
 
 **/local_memory/*

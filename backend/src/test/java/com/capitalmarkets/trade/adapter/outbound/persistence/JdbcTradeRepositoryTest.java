@@ -77,7 +77,7 @@ class JdbcTradeRepositoryTest {
         });
         verify(namedJdbc).queryForObject(contains("source_type = :sourceType"),
                 any(MapSqlParameterSource.class), eq(Long.class));
-        verify(namedJdbc).query(contains("ORDER BY trade_id ASC"),
+        verify(namedJdbc).query(contains("ORDER BY trade_id ASC, id ASC"),
                 any(MapSqlParameterSource.class), any(RowMapper.class));
     }
 
@@ -92,8 +92,34 @@ class JdbcTradeRepositoryTest {
 
         verify(namedJdbc).queryForObject(contains("POSITION(LOWER(:search)"),
                 any(MapSqlParameterSource.class), eq(Long.class));
-        verify(namedJdbc).query(contains("ORDER BY instrument_id ASC"),
+        verify(namedJdbc).query(contains("ORDER BY instrument_id ASC, id ASC"),
                 any(MapSqlParameterSource.class), any(RowMapper.class));
+    }
+
+    @Test
+    void sortsSourceStatusDiagnosticsAndIngestionTimeUsingAllowListedColumns() {
+        when(namedJdbc.queryForObject(anyString(), any(MapSqlParameterSource.class), eq(Long.class))).thenReturn(0L);
+        when(namedJdbc.query(anyString(), any(MapSqlParameterSource.class), any(RowMapper.class)))
+                .thenReturn(List.of());
+
+        for (var sortField : List.of(
+                TradeSortField.SOURCE,
+                TradeSortField.STATUS,
+                TradeSortField.VALIDATION_REASON,
+                TradeSortField.RECEIVED_AT)) {
+            repository.find(new TradeQuery(null, null, null, null, 0, 50, null,
+                    sortField, TradeSortDirection.ASC));
+        }
+
+        var sql = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(namedJdbc, times(4)).query(sql.capture(), any(MapSqlParameterSource.class), any(RowMapper.class));
+        assertThat(sql.getAllValues()).anySatisfy(query ->
+                assertThat(query).contains("ORDER BY source_type ASC, id ASC"));
+        assertThat(sql.getAllValues()).anySatisfy(query -> assertThat(query).contains("ORDER BY status ASC, id ASC"));
+        assertThat(sql.getAllValues()).anySatisfy(query ->
+                assertThat(query).contains("ORDER BY validation_reason ASC, id ASC"));
+        assertThat(sql.getAllValues()).anySatisfy(query ->
+                assertThat(query).contains("ORDER BY received_at ASC, id ASC"));
     }
 
     @Test
@@ -145,7 +171,7 @@ class JdbcTradeRepositoryTest {
         when(row.getTimestamp("trade_timestamp")).thenReturn(now);
         when(row.getString("source_type")).thenReturn("KAFKA");
         when(row.getString("status")).thenReturn("INVALID");
-        when(row.getString("validation_reason")).thenReturn("Quantity must not be zero");
+        when(row.getString("validation_reason")).thenReturn("Quantity must be greater than zero");
         when(row.getTimestamp("received_at")).thenReturn(now);
         return row;
     }
