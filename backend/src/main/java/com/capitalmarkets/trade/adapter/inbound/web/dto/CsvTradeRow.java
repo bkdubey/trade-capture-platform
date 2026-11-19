@@ -1,0 +1,21 @@
+package com.capitalmarkets.trade.adapter.inbound.web.dto;
+
+import com.capitalmarkets.trade.service.dto.TradeCaptureData;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+
+public record CsvTradeRow(
+        @NotBlank String bookingSystem,
+        @NotNull Long tradeId,
+        @NotBlank String instrumentId,
+        @NotNull Long quantity,
+        @NotNull BigDecimal tradePrice,
+        @NotNull Instant tradeTimestamp
+) {
+    public TradeCaptureData toCaptureData() {
+        return new TradeCaptureData(bookingSystem, tradeId, instrumentId, quantity, tradePrice, tradeTimestamp);
+    }
+}

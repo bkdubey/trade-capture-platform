@@ -1,6 +1,7 @@
 spring:
   application:
     name: trade-capture-api
+  # PostgreSQL connection settings. Supply credentials through environment variables.
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/trades}
     username: ${DATABASE_USER:trades}
@@ -8,27 +9,31 @@ spring:
     hikari:
       maximum-pool-size: ${DB_POOL_SIZE:20}
       minimum-idle: ${DB_POOL_MIN_IDLE:2}
-      connection-timeout: 30000
+      connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:30000}
+  # Apply versioned SQL migrations at startup.
   flyway:
     enabled: true
+  # HTTP upload guardrails; CSV parsing is currently performed in memory.
   servlet:
     multipart:
-      max-file-size: 25MB
-      max-request-size: 26MB
+      max-file-size: ${TRADE_MAX_FILE_SIZE:25MB}
+      max-request-size: ${TRADE_MAX_REQUEST_SIZE:26MB}
+  # Shared broker connection and consumer-group settings.
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
-      group-id: trade-capture-api
+      group-id: ${KAFKA_CONSUMER_GROUP_ID:trade-capture-api}
       auto-offset-reset: earliest
       enable-auto-commit: false
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        spring.json.value.default.type: com.capitalmarkets.trade.application.TradeRecord
-        spring.json.trusted.packages: com.capitalmarkets.trade.application
+        spring.json.value.default.type: com.capitalmarkets.trade.adapter.messaging.dto.TradeMessage
+        spring.json.trusted.packages: com.capitalmarkets.trade.adapter.messaging.dto
     listener:
       ack-mode: record
       concurrency: ${KAFKA_CONCURRENCY:3}
+    # Kafka producer client reliability settings.
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -57,8 +62,22 @@ management:
     env:
       enabled: false
 app:
+  # Application-level CSV and JDBC ingestion limits.
+  ingestion:
+    write-batch-size: ${TRADE_WRITE_BATCH_SIZE:1000}
+    max-csv-rows: ${TRADE_MAX_CSV_ROWS:1000000}
+  # Application-owned topic provisioning and producer/consumer behavior.
   kafka:
-    topic: trades.intraday
+    topic: ${KAFKA_TRADE_TOPIC:trades.intraday}
+    dead-letter-suffix: ${KAFKA_DLT_SUFFIX:.DLT}
+    partitions: ${KAFKA_TRADE_PARTITIONS:3}
+    replicas: ${KAFKA_TRADE_REPLICAS:1}
+    producer:
+      publish-timeout: ${KAFKA_PUBLISH_TIMEOUT:10s}
+    consumer:
+      retry-backoff: ${KAFKA_RETRY_BACKOFF:1s}
+      retry-attempts: ${KAFKA_RETRY_ATTEMPTS:3}
+  # Local demo CORS origin. Keep the API private until real authentication is added.
   security:
     allowed-origin: ${UI_ORIGIN:http://localhost:4200}
 logging:

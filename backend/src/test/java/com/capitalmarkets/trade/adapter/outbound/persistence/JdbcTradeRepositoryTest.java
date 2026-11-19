@@ -1,9 +1,11 @@
 package com.capitalmarkets.trade.adapter.outbound.persistence;
 
-import com.capitalmarkets.trade.application.TradeQuery;
-import com.capitalmarkets.trade.application.TradeRepository;
-import com.capitalmarkets.trade.application.TradeSortDirection;
-import com.capitalmarkets.trade.application.TradeSortField;
+import com.capitalmarkets.trade.config.properties.TradeIngestionProperties;
+import com.capitalmarkets.trade.service.TradeQuery;
+import com.capitalmarkets.trade.service.port.TradeRepository;
+import com.capitalmarkets.trade.service.dto.TradeSummary;
+import com.capitalmarkets.trade.service.TradeSortDirection;
+import com.capitalmarkets.trade.service.TradeSortField;
 import com.capitalmarkets.trade.domain.Trade;
 import com.capitalmarkets.trade.domain.TradeSource;
 import com.capitalmarkets.trade.domain.TradeStatus;
@@ -29,7 +31,8 @@ import static org.mockito.Mockito.*;
 class JdbcTradeRepositoryTest {
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
     private final NamedParameterJdbcTemplate namedJdbc = mock(NamedParameterJdbcTemplate.class);
-    private final JdbcTradeRepository repository = new JdbcTradeRepository(jdbc, namedJdbc);
+    private final JdbcTradeRepository repository =
+            new JdbcTradeRepository(jdbc, namedJdbc, new TradeIngestionProperties());
 
     @Test
     void savesBatchesAndSkipsEmptyWrites() throws Exception {
@@ -132,14 +135,14 @@ class JdbcTradeRepositoryTest {
         when(row.getLong("kafka")).thenReturn(5L);
         when(namedJdbc.queryForObject(anyString(), any(MapSqlParameterSource.class), any(RowMapper.class)))
                 .thenAnswer(invocation -> {
-                    RowMapper<TradeRepository.TradeSummary> mapper = invocation.getArgument(2);
+                    RowMapper<TradeSummary> mapper = invocation.getArgument(2);
                     return mapper.mapRow(row, 0);
                 });
 
         var result = repository.summarize(
                 Instant.parse("2026-01-01T00:00:00Z"), Instant.parse("2026-01-02T00:00:00Z"));
 
-        assertThat(result).isEqualTo(new TradeRepository.TradeSummary(13, 10, 3, 8, 5));
+        assertThat(result).isEqualTo(new TradeSummary(13, 10, 3, 8, 5));
         verify(namedJdbc).queryForObject(contains("COUNT(*) FILTER"),
                 any(MapSqlParameterSource.class), any(RowMapper.class));
     }

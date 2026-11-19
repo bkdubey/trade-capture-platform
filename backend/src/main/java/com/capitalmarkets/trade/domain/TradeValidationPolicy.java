@@ -1,10 +1,7 @@
 package com.capitalmarkets.trade.domain;
 
-import org.springframework.stereotype.Component;
-
 import java.math.BigDecimal;
 
-@Component
 public class TradeValidationPolicy {
     public ValidationResult validate(long quantity, BigDecimal tradePrice) {
         if (quantity <= 0) {

@@ -1,10 +1,14 @@
 package com.capitalmarkets.trade.adapter.outbound.persistence;
 
-import com.capitalmarkets.trade.application.TradeQuery;
-import com.capitalmarkets.trade.application.TradeRepository;
+import com.capitalmarkets.trade.config.properties.TradeIngestionProperties;
 import com.capitalmarkets.trade.domain.Trade;
 import com.capitalmarkets.trade.domain.TradeSource;
 import com.capitalmarkets.trade.domain.TradeStatus;
+import com.capitalmarkets.trade.service.TradeQuery;
+import com.capitalmarkets.trade.service.TradeSortField;
+import com.capitalmarkets.trade.service.dto.TradePage;
+import com.capitalmarkets.trade.service.dto.TradeSummary;
+import com.capitalmarkets.trade.service.port.TradeRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -26,6 +30,7 @@ public class JdbcTradeRepository implements TradeRepository {
 
     private final JdbcTemplate jdbcTemplate;
     private final NamedParameterJdbcTemplate namedJdbcTemplate;
+    private final TradeIngestionProperties ingestionProperties;
     private final RowMapper<Trade> rowMapper = (rs, row) -> new Trade(
             rs.getObject("id", UUID.class),
             rs.getString("booking_system"),
@@ -40,9 +45,13 @@ public class JdbcTradeRepository implements TradeRepository {
             rs.getTimestamp("received_at").toInstant()
     );
 
-    public JdbcTradeRepository(JdbcTemplate jdbcTemplate, NamedParameterJdbcTemplate namedJdbcTemplate) {
+    public JdbcTradeRepository(
+            JdbcTemplate jdbcTemplate,
+            NamedParameterJdbcTemplate namedJdbcTemplate,
+            TradeIngestionProperties ingestionProperties) {
         this.jdbcTemplate = jdbcTemplate;
         this.namedJdbcTemplate = namedJdbcTemplate;
+        this.ingestionProperties = ingestionProperties;
     }
 
     @Override
@@ -55,7 +64,7 @@ public class JdbcTradeRepository implements TradeRepository {
                     trade_timestamp, source_type, status, validation_reason, received_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (source_type, booking_system, trade_id, trade_timestamp) DO NOTHING
-                """, trades, 1_000, (statement, trade) -> {
+                """, trades, ingestionProperties.getWriteBatchSize(), (statement, trade) -> {
             statement.setObject(1, trade.id());
             statement.setString(2, trade.bookingSystem());
             statement.setLong(3, trade.tradeId());
@@ -98,7 +107,7 @@ public class JdbcTradeRepository implements TradeRepository {
         parameters.addValue("offset", (long) query.page() * query.size());
         List<Trade> rows = namedJdbcTemplate.query(
                 "SELECT " + SELECT_COLUMNS + " FROM trades" + where
-                        + " ORDER BY " + query.sortBy().column() + " " + query.sortDirection().name()
+                        + " ORDER BY " + sortColumn(query.sortBy()) + " " + query.sortDirection().name()
                         + ", id " + query.sortDirection().name() + " LIMIT :limit OFFSET :offset",
                 parameters, rowMapper);
         return new TradePage(rows, total == null ? 0 : total, query.page(), query.size());
@@ -133,5 +142,20 @@ public class JdbcTradeRepository implements TradeRepository {
             parameters.addValue("to", Timestamp.from(to));
         }
         return conditions;
+    }
+
+    private String sortColumn(TradeSortField sortField) {
+        return switch (sortField) {
+            case TRADE_TIMESTAMP -> "trade_timestamp";
+            case BOOKING_SYSTEM -> "booking_system";
+            case TRADE_ID -> "trade_id";
+            case INSTRUMENT_ID -> "instrument_id";
+            case QUANTITY -> "quantity";
+            case TRADE_PRICE -> "trade_price";
+            case STATUS -> "status";
+            case SOURCE -> "source_type";
+            case VALIDATION_REASON -> "validation_reason";
+            case RECEIVED_AT -> "received_at";
+        };
     }
 }
