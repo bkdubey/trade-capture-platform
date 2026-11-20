@@ -11,8 +11,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
-import java.util.Locale;
-import java.io.IOException;
 
 @RestController
 @RequestMapping("/api/v1/ingestion")
@@ -25,17 +23,11 @@ public class FileIngestionController {
 
     @PostMapping("/files")
     public FileIngestionResponse upload(@RequestPart("file") MultipartFile file) {
-        if (file.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CSV file must not be empty");
-        }
-        if (file.getOriginalFilename() == null
-                || !file.getOriginalFilename().toLowerCase(Locale.ROOT).endsWith(".csv")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only CSV files are supported");
-        }
         try {
-            return new FileIngestionResponse(fileIngestionService.ingest(file.getInputStream()));
+            return new FileIngestionResponse(fileIngestionService.ingest(
+                    file.getOriginalFilename(), file.getSize(), file.getInputStream()));
         } catch (IOException exception) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unable to read CSV file", exception);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unable to read uploaded file", exception);
         }
     }
 }

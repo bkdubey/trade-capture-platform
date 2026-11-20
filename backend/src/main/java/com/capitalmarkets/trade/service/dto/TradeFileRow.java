@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-public record CsvTradeRow(
+public record TradeFileRow(
         @NotBlank String bookingSystem,
         @NotNull Long tradeId,
         @NotBlank String instrumentId,

@@ -1,9 +1,9 @@
 package com.capitalmarkets.trade.service;
 
 import com.capitalmarkets.trade.config.properties.TradeIngestionProperties;
-import com.capitalmarkets.trade.service.dto.CsvTradeRow;
+import com.capitalmarkets.trade.service.dto.TradeFileRow;
 import com.capitalmarkets.trade.service.dto.TradeCaptureData;
-import com.capitalmarkets.trade.service.exception.CsvRowLimitExceededException;
+import com.capitalmarkets.trade.service.exception.TradeFileRowLimitExceededException;
 import com.capitalmarkets.trade.service.exception.InvalidCsvException;
 import jakarta.validation.Validator;
 import org.apache.commons.csv.CSVFormat;
@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
-public class CsvTradeParser {
+public class CsvTradeParser implements TradeFileParser {
     private static final List<String> HEADERS = List.of(
             "BookingSystem", "TradeID", "InstrumentID", "Quantity", "TradePrice", "TradeTimestamp");
 
@@ -33,6 +33,12 @@ public class CsvTradeParser {
         this.properties = properties;
     }
 
+    @Override
+    public TradeFileFormat format() {
+        return TradeFileFormat.CSV;
+    }
+
+    @Override
     public List<TradeCaptureData> parse(InputStream inputStream) {
         try (var reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
              CSVParser parser = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true)
@@ -43,11 +49,11 @@ public class CsvTradeParser {
 
             List<TradeCaptureData> records = new ArrayList<>();
             for (CSVRecord row : parser) {
-                if (records.size() >= properties.getMaxCsvRows()) {
-                    throw new CsvRowLimitExceededException(properties.getMaxCsvRows());
+                if (records.size() >= properties.getMaxFileRows()) {
+                    throw new TradeFileRowLimitExceededException(properties.getMaxFileRows());
                 }
                 try {
-                    var csvRow = new CsvTradeRow(
+                    var csvRow = new TradeFileRow(
                             row.get("BookingSystem"),
                             Long.parseLong(row.get("TradeID")),
                             row.get("InstrumentID"),

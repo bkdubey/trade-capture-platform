@@ -65,7 +65,7 @@ type Theme = 'dark' | 'light';
           </div>
           <div class="ledger-actions">
             <label class="upload-button" [class.uploading]="uploading">
-              <span>▤ Upload CSV</span><input type="file" accept=".csv,text/csv" (change)="upload($event)" [disabled]="uploading">
+              <span>▤ Upload file</span><input type="file" accept=".csv,.txt,text/csv,text/plain" (change)="upload($event)" [disabled]="uploading">
             </label>
             <button class="action-button kafka-button" (click)="kafkaComposerOpen = !kafkaComposerOpen">
               <span>⌁ Send Kafka test</span>

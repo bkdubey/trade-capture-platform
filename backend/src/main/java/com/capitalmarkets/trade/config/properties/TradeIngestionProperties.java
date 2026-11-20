@@ -11,7 +11,7 @@ public class TradeIngestionProperties {
     private int writeBatchSize = 1_000;
 
     @Min(1)
-    private int maxCsvRows = 1_000_000;
+    private int maxFileRows = 1_000_000;
 
     public int getWriteBatchSize() {
         return writeBatchSize;
@@ -21,11 +21,11 @@ public class TradeIngestionProperties {
         this.writeBatchSize = writeBatchSize;
     }
 
-    public int getMaxCsvRows() {
-        return maxCsvRows;
+    public int getMaxFileRows() {
+        return maxFileRows;
     }
 
-    public void setMaxCsvRows(int maxCsvRows) {
-        this.maxCsvRows = maxCsvRows;
+    public void setMaxFileRows(int maxFileRows) {
+        this.maxFileRows = maxFileRows;
     }
 }

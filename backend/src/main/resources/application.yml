@@ -68,10 +68,10 @@ app:
   # Selects one repository adapter; add alternate adapter implementations behind this boundary.
   persistence:
     adapter: ${TRADE_PERSISTENCE_ADAPTER:jdbc}
-  # Application-level CSV and JDBC ingestion limits.
+  # Application-level file and JDBC ingestion limits.
   ingestion:
     write-batch-size: ${TRADE_WRITE_BATCH_SIZE:1000}
-    max-csv-rows: ${TRADE_MAX_CSV_ROWS:1000000}
+    max-file-rows: ${TRADE_MAX_FILE_ROWS:${TRADE_MAX_CSV_ROWS:1000000}}
   # Application-owned topic provisioning and producer/consumer behavior.
   kafka:
     topic: ${KAFKA_TRADE_TOPIC:trades.intraday}

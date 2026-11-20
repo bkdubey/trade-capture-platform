@@ -1,7 +1,7 @@
 package com.capitalmarkets.trade.service;
 
 import com.capitalmarkets.trade.config.properties.TradeIngestionProperties;
-import com.capitalmarkets.trade.service.exception.CsvRowLimitExceededException;
+import com.capitalmarkets.trade.service.exception.TradeFileRowLimitExceededException;
 import com.capitalmarkets.trade.service.exception.InvalidCsvException;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validation;
@@ -60,12 +60,12 @@ class CsvTradeParserTest {
                         + ",100,IBM,1,1.0,2026-01-01T10:00:00Z\n")))
                 .isInstanceOf(ConstraintViolationException.class);
 
-        properties.setMaxCsvRows(1);
+        properties.setMaxFileRows(1);
         assertThatThrownBy(() -> parser.parse(csv(
                 "BookingSystem,TradeID,InstrumentID,Quantity,TradePrice,TradeTimestamp\n"
                         + "MUREX,100,IBM,1,1.0,2026-01-01T10:00:00Z\n"
                         + "MUREX,101,IBM,1,1.0,2026-01-01T10:01:00Z\n")))
-                .isInstanceOf(CsvRowLimitExceededException.class);
+                .isInstanceOf(TradeFileRowLimitExceededException.class);
     }
 
     private ByteArrayInputStream csv(String contents) {

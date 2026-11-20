@@ -21,11 +21,11 @@ class ApiExceptionHandlerTest {
     }
 
     @Test
-    void mapsCsvValidationFailuresToSafeError() {
+    void mapsMissingTradeFieldsToSafeError() {
         var response = handler.handleConstraintViolation(new ConstraintViolationException(Set.of()));
 
         assertThat(response.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
-        assertThat(response.getTitle()).isEqualTo("Invalid CSV record");
+        assertThat(response.getTitle()).isEqualTo("Invalid trade record");
     }
 
     @Test

@@ -1,8 +1,10 @@
 package com.capitalmarkets.trade.adapter.inbound.web.advice;
 
 import jakarta.validation.ConstraintViolationException;
-import com.capitalmarkets.trade.service.exception.CsvRowLimitExceededException;
+import com.capitalmarkets.trade.service.exception.InvalidTradeFileException;
 import com.capitalmarkets.trade.service.exception.InvalidCsvException;
+import com.capitalmarkets.trade.service.exception.TradeFileRowLimitExceededException;
+import com.capitalmarkets.trade.service.exception.UnsupportedTradeFileFormatException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -11,6 +13,20 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(UnsupportedTradeFileFormatException.class)
+    ProblemDetail handleUnsupportedFileFormat(UnsupportedTradeFileFormatException exception) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.UNSUPPORTED_MEDIA_TYPE, exception.getMessage());
+        detail.setTitle("Unsupported file format");
+        return detail;
+    }
+
+    @ExceptionHandler(InvalidTradeFileException.class)
+    ProblemDetail handleInvalidTradeFile(InvalidTradeFileException exception) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+        detail.setTitle("Invalid file");
+        return detail;
+    }
+
     @ExceptionHandler(InvalidCsvException.class)
     ProblemDetail handleInvalidCsv(InvalidCsvException exception) {
         var detail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
@@ -18,10 +34,10 @@ public class ApiExceptionHandler {
         return detail;
     }
 
-    @ExceptionHandler(CsvRowLimitExceededException.class)
-    ProblemDetail handleCsvRowLimit(CsvRowLimitExceededException exception) {
+    @ExceptionHandler(TradeFileRowLimitExceededException.class)
+    ProblemDetail handleFileRowLimit(TradeFileRowLimitExceededException exception) {
         var detail = ProblemDetail.forStatusAndDetail(HttpStatus.PAYLOAD_TOO_LARGE, exception.getMessage());
-        detail.setTitle("CSV row limit exceeded");
+        detail.setTitle("File row limit exceeded");
         return detail;
     }
 
@@ -34,8 +50,8 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(ConstraintViolationException.class)
     ProblemDetail handleConstraintViolation(ConstraintViolationException exception) {
-        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "CSV record contains missing fields");
-        detail.setTitle("Invalid CSV record");
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Trade record contains missing fields");
+        detail.setTitle("Invalid trade record");
         return detail;
     }
 
